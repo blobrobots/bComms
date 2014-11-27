@@ -45,7 +45,7 @@ class Serial
     int  readBytes  (char *buffer, uint16_t length);
     int  write      (uint8_t *buffer, uint16_t length);
     int  setTimeout (long ms);
-    bool isReady    () { return (_fd >= 0); }
+    bool isReady    ();
 
   private:
     unsigned int   _baudrate;

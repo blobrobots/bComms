@@ -19,11 +19,6 @@
 #include "bMath.h"
 
 #define B_COMMS_MAX_MSG_SIZE   64 // bytes
-#define B_COMMS_STATE_MSG_SIZE 32 // bytes
-#define B_COMMS_VEL_MSG_SIZE   16 // bytes
-#define B_COMMS_GOTO_MSG_SIZE  16 // bytes
-#define B_COMMS_ONOFF_MSG_SIZE  8 // bytes
-#define B_COMMS_EMPTY_MSG_SIZE  4 // bytes
 
 namespace blob {
 
@@ -39,7 +34,7 @@ class Comms
     typedef struct {
       uint8_t type;
       uint8_t subtype;
-    } headerMsg_t;
+    } headerMsg_t; // 2 bytes
 
     typedef struct {
       headerMsg_t header;
@@ -57,13 +52,8 @@ class Comms
       int16_t px;
       int16_t py;
       int16_t pz;
-      uint16_t crc;
-    } stateSt_t;
-
-    typedef union {
-      byte frame[B_COMMS_STATE_MSG_SIZE];
-      stateSt_t field;
-    } stateMsg_t;
+      int16_t crc;
+    } stateMsg_t; // 32 bytes
 
     typedef struct {
       headerMsg_t header;
@@ -72,49 +62,29 @@ class Comms
       int16_t  vy;
       int16_t  vz;
       int16_t  vyaw;
-      uint16_t crc;
-    } velSt_t;
+      int16_t crc;
+    } velMsg_t; // 16 bytes
 
-    typedef union {
-      byte frame[B_COMMS_VEL_MSG_SIZE];
-      velSt_t field;
-    } velMsg_t;
-
-    typedef struct {
+   typedef struct {
       headerMsg_t header;
       int16_t x;
       int16_t y;
       int16_t z;
       int16_t heading;
       int16_t speed;
-      uint16_t crc;
-    } gotoSt_t;
-
-    typedef union {
-      byte frame[B_COMMS_GOTO_MSG_SIZE];
-      gotoSt_t field;
-    } gotoMsg_t;
+      int16_t crc;
+    } gotoMsg_t; // 16 bytes
 
     typedef struct {
       headerMsg_t header;
       uint16_t value;
-      uint16_t crc;
-    } actionSt_t;
-
-    typedef union {
-      byte frame[B_COMMS_ONOFF_MSG_SIZE];
-      actionSt_t field;
-    } actionMsg_t;
+      int16_t crc;
+    } actionMsg_t; // 8 bytes
 
     typedef struct {
       headerMsg_t header;
-      uint16_t crc;
-    } emptySt_t;
-
-    typedef union {
-      byte frame[B_COMMS_EMPTY_MSG_SIZE];
-      emptySt_t field;
-    } emptyMsg_t;
+      int16_t crc;
+    } emptyMsg_t; // 4 bytes
 
 #if defined(__linux__)
     Comms(std::string port = "/dev/ttyACM0");
@@ -151,6 +121,7 @@ class Comms
 
   private:
     int16_t calcCrc (byte *frame, size_t length);
+    bool sync ();
     bool retrieve (size_t length);
     bool isMsgTypeValid (int8_t type);
     bool isMsgSubTypeValid (int8_t subtype);

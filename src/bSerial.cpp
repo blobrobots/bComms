@@ -21,7 +21,7 @@ blob::Serial::Serial (std::string port)
    _fd       = -1;
 } // Serial::Serial
 
-int blob::Serial::begin     (uint32_t baudrate, Config cfg)
+int blob::Serial::begin (uint32_t baudrate, Config cfg)
 {
   int16_t retval = 0;
   // configuration options :
@@ -183,18 +183,22 @@ int blob::Serial::begin     (uint32_t baudrate, Config cfg)
 
   unistd::usleep (10000);
 
-  return 0;
+  return _fd;
 } // Serial::begin
 
 int blob::Serial::available ()
 {
-  int retval;
-  int bytes_avail;
+  if(!isReady())
+    return -1;
 
-  if(ioctl(_fd, FIONREAD, &bytes_avail) < 0)
+  int retval;
+  int error;
+  int bytes_avail = 0;
+  
+  if((error=ioctl(_fd, FIONREAD, &bytes_avail)) < 0)
   {
 #if defined(__DEBUG__)
-    std::cerr << "[blob::Serial::available] Error in ioctl request" << std::endl;
+    std::cerr << "[blob::Serial::available] Error (" << error << " in ioctl request for fd " << _fd << std::endl;
 #endif
     retval = -1;
   }
@@ -208,6 +212,9 @@ int blob::Serial::available ()
 
 int blob::Serial::end ()
 {
+  if(!isReady())
+    return -1;
+
   // close the serial port
   return unistd::close(_fd);
 
@@ -215,6 +222,9 @@ int blob::Serial::end ()
 
 void blob::Serial::flush ()
 {
+  if(!isReady())
+    return;
+
   char c;
   while(available()){
       unistd::read(_fd,&c,1);
@@ -223,6 +233,9 @@ void blob::Serial::flush ()
 
 int blob::Serial::peek ()
 {
+  if(!isReady())
+    return -1;
+
   // We obtain a pointer to FILE structure from the file descriptor sd
   FILE * fp = NULL;
   char c = 0;
@@ -230,6 +243,9 @@ int blob::Serial::peek ()
   {
     c = getc(fp);
     ungetc(c, fp);
+#if defined(__DEBUG__)
+  std::cout << "p0x" << std::hex << (int)c << std::dec << std::endl;
+#endif // defined(__DEBUG__)
     return c;
   }
   else
@@ -243,28 +259,54 @@ int blob::Serial::peek ()
 
 int blob::Serial::read ()
 {
+  if(!isReady())
+    return -1;
+
   uint8_t byte;
   int16_t retval = -1;
 
   if(unistd::read(_fd, &byte, 1) >= 0)
     retval = (int16_t)byte;
 
+#if defined(__DEBUG__)
+  std::cout << "r0x" << std::hex << (int)byte << std::dec << std::endl;
+#endif // defined(__DEBUG__)
+  
   return retval;
 
 } // Serial::read
 
 int blob::Serial::readBytes (char *buffer, uint16_t length)
 {
+  if(!isReady())
+    return -1;
+#if defined(__DEBUG__)
+  int retval = unistd::read(_fd, buffer, length);
+  for (uint16_t i = 0; i < length; i++)
+    std::cout << "r0x" << std::hex << (int)buffer[i] << std::dec << std::endl;
+  return retval;
+#else
   return unistd::read(_fd, buffer, length);
+#endif // defined(__DEBUG__)
+
 } // Serial::readBytes
 
 int blob::Serial::write (uint8_t *buffer, uint16_t length)
 {
+  if(!isReady())
+    return -1;
+#if defined(__DEBUG__)
+  for (uint16_t i = 0; i < length; i++)
+    std::cout << "w0x" << std::hex << (int)buffer[i] << std::dec << std::endl;
+#endif // defined(__DEBUG__)
   return unistd::write(_fd, buffer, length);
 } // Serial::write
 
 int blob::Serial::setTimeout(long ms)
 {
+  if(!isReady())
+    return -1;
+
   if (ms > 0 && ms < 100)
     _timeout = 1;
   else if (ms > 25500)
@@ -288,5 +330,14 @@ int blob::Serial::setTimeout(long ms)
      return _timeout;
    }
 } // Serial::setTimeout
+
+bool blob::Serial::isReady () 
+{ 
+#if defined(__DEBUG__)
+  if(_fd < 0)
+    std::cerr << "[blob::Serial::isReady] Error fd=" << _fd << std::endl;
+#endif
+  return (_fd >= 0); 
+}
 
 #endif // defined(__linux__)

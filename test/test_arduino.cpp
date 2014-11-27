@@ -8,6 +8,7 @@
 #include "Arduino.h"
 #include "bComms.h"
 
+float dt = 0.02f;
 blob::Vector3d<float> e, a, v, p;
 blob::Comms comms;
 
@@ -36,9 +37,10 @@ void loop()
 
   if (send)
   { 
-    const blob::Vector3d<float> inc (1.f,1.f,1.f);
+    const blob::Vector3d<float> inc (dt,dt,dt);
     e+=inc; a+=inc; v+=inc; p+=inc;
     comms.send(e,a,v,p);
-  }  
-  delay(10);
+  } 
+ 
+  delay(1000*dt);
 }

@@ -9,15 +9,16 @@
 #if defined(__linux__)
   #include <stdio.h>
   #include <string.h>
+  #include <iostream>
 #endif
 
-static const byte sync[2] = {0xFF, 0xFF};
+static const byte _sync[2] = {0xFF, 0xFF};
 
 #if defined(__linux__)
   blob::Comms::Comms (std::string port) : Serial(port.c_str()) {}
 #endif
 
-void blob::Comms::init (int32_t baudrate)
+void blob::Comms::init (int32_t baudrate) // FIXME treat retval and errors
 {
   // initialize serial communication at 115200 bits per second:
   Serial.begin(baudrate);
@@ -26,6 +27,8 @@ void blob::Comms::init (int32_t baudrate)
   // wait for Leonardo enumeration, others continue immediately
   while (!Serial);
 #endif
+  _receiving = false;
+
 } // Comms::init
 
 bool blob::Comms::isReady () {
@@ -46,6 +49,9 @@ int16_t blob::Comms::calcCrc(byte *frame, size_t length)
   for(uint16_t i = 0; i < length; i++) {
     crc ^= (int16_t)frame[i];
   }
+#if defined(__DEBUG__) && defined(__linux) 
+  std::cout << " crc = " << crc << " from length = " << length << std::endl;
+#endif
   return crc;
 }
 
@@ -54,51 +60,52 @@ bool blob::Comms::send (blob::Comms::MsgSubType st)
   emptyMsg_t msg;
   bool retval = false;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_EMPTY_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
   if(st == blob::Comms::Health)
   {
-    msg.field.header.type = blob::Comms::Data;
-    msg.field.header.subtype = st;
+    msg.header.type = blob::Comms::Data;
+    msg.header.subtype = st;
 
-    msg.field.crc = calcCrc(msg.frame,B_COMMS_EMPTY_MSG_SIZE-2);
+    msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-    Serial.write((byte *) sync, sizeof(sync));
-    Serial.write(msg.frame, B_COMMS_EMPTY_MSG_SIZE);
+    Serial.write((byte *) _sync, sizeof(_sync));
+    Serial.write((byte *)&msg, sizeof(msg));
 
     retval = true;
   }
   return retval;
 } // Comms::send
 
+// FIXME check if values are within range of int 16 (aprox +- 32.2)
 bool blob::Comms::send(blob::Vector3d<float> e, blob::Vector3d<float> a, blob::Vector3d<float> v, blob::Vector3d<float> p)
 {
   bool retval = true;
 
   stateMsg_t msg;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_STATE_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
-  msg.field.header.type = blob::Comms::Data;
-  msg.field.header.subtype = blob::Comms::State;
+  msg.header.type = blob::Comms::Data;
+  msg.header.subtype = blob::Comms::State;
 
-  msg.field.ex = (int16_t)(1000.f*e.x);
-  msg.field.ey = (int16_t)(1000.f*e.y);
-  msg.field.ez = (int16_t)(1000.f*e.z);
-  msg.field.ax = (int16_t)(1000.f*a.x);
-  msg.field.ay = (int16_t)(1000.f*a.y);
-  msg.field.az = (int16_t)(1000.f*a.z);
-  msg.field.vx = (int16_t)(1000.f*v.x);
-  msg.field.vy = (int16_t)(1000.f*v.y);
-  msg.field.vz = (int16_t)(1000.f*v.z);
-  msg.field.px = (int16_t)(1000.f*p.x);
-  msg.field.py = (int16_t)(1000.f*p.y);
-  msg.field.pz = (int16_t)(1000.f*p.z);
+  msg.ex = (int16_t)(1000.f*e.x);
+  msg.ey = (int16_t)(1000.f*e.y);
+  msg.ez = (int16_t)(1000.f*e.z);
+  msg.ax = (int16_t)(1000.f*a.x);
+  msg.ay = (int16_t)(1000.f*a.y);
+  msg.az = (int16_t)(1000.f*a.z);
+  msg.vx = (int16_t)(1000.f*v.x);
+  msg.vy = (int16_t)(1000.f*v.y);
+  msg.vz = (int16_t)(1000.f*v.z);
+  msg.px = (int16_t)(1000.f*p.x);
+  msg.py = (int16_t)(1000.f*p.y);
+  msg.pz = (int16_t)(1000.f*p.z);
 
-  msg.field.crc = calcCrc(msg.frame,B_COMMS_STATE_MSG_SIZE-2);
+  msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-  Serial.write((byte *) sync, sizeof(sync));
-  Serial.write(msg.frame, B_COMMS_STATE_MSG_SIZE);
+  Serial.write((byte *) _sync, sizeof(_sync));
+  Serial.write((byte *)&msg, sizeof(msg));
 
   return retval;
 } // Comms::send
@@ -108,17 +115,17 @@ bool blob::Comms::cmd (blob::Comms::MsgSubType st)
   emptyMsg_t msg;
   bool retval = false;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_EMPTY_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
   if(st == blob::Comms::Start)
   {
-    msg.field.header.type = blob::Comms::Command;
-    msg.field.header.subtype = st;
+    msg.header.type = blob::Comms::Command;
+    msg.header.subtype = st;
 
-    msg.field.crc = calcCrc(msg.frame,B_COMMS_EMPTY_MSG_SIZE-2);
+    msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-    Serial.write((byte *) sync, sizeof(sync));
-    Serial.write(msg.frame, B_COMMS_EMPTY_MSG_SIZE);
+    Serial.write((byte *) _sync, sizeof(_sync));
+    Serial.write((byte *)&msg, sizeof(msg));
 
     retval = true;
   }
@@ -130,15 +137,15 @@ bool blob::Comms::cmd (blob::Comms::OnOff action)
   actionMsg_t msg;
   bool retval = false;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_EMPTY_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
-  msg.field.header.type = blob::Comms::Command;
-  msg.field.header.subtype = blob::Comms::Motors;
-  msg.field.value = action;
-  msg.field.crc = calcCrc(msg.frame,B_COMMS_EMPTY_MSG_SIZE-2);
+  msg.header.type = blob::Comms::Command;
+  msg.header.subtype = blob::Comms::Motors;
+  msg.value = action;
+  msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-  Serial.write((byte *) sync, sizeof(sync));
-  Serial.write(msg.frame, B_COMMS_EMPTY_MSG_SIZE);
+  Serial.write((byte *) _sync, sizeof(_sync));
+  Serial.write((byte *)&msg, sizeof(msg));
 
   retval = true;
 
@@ -151,132 +158,177 @@ bool blob::Comms::cmd (blob::Comms::InOut action)
   actionMsg_t msg;
   bool retval = false;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_EMPTY_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
-  msg.field.header.type = blob::Comms::Command;
-  msg.field.header.subtype = blob::Comms::Dock;
-  msg.field.value = action;
-  msg.field.crc = calcCrc(msg.frame,B_COMMS_EMPTY_MSG_SIZE-2);
+  msg.header.type = blob::Comms::Command;
+  msg.header.subtype = blob::Comms::Dock;
+  msg.value = action;
+  msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-  Serial.write((byte *) sync, sizeof(sync));
-  Serial.write(msg.frame, B_COMMS_EMPTY_MSG_SIZE);
+  Serial.write((byte *) _sync, sizeof(_sync));
+  Serial.write((byte *)&msg, sizeof(msg));
 
   retval = true;
 
   return retval;
 } // Comms::cmd
 
+// FIXME check if values are within range of int 16 (aprox +- 32.2)
 bool blob::Comms::cmd (blob::Vector3d<float> vel, float vyaw)
 {
   bool retval = false;
 
   velMsg_t msg;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_VEL_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
-  msg.field.header.type = blob::Comms::Command;
-  msg.field.header.subtype = blob::Comms::Vel;
+  msg.header.type = blob::Comms::Command;
+  msg.header.subtype = blob::Comms::Vel;
 
-  msg.field.vx = (int16_t)(1000.f*vel.x);
-  msg.field.vy = (int16_t)(1000.f*vel.y);
-  msg.field.vz = (int16_t)(1000.f*vel.z);
-  msg.field.vyaw = (int16_t)(1000.f*vyaw);
+  msg.vx = (int16_t)(1000.f*vel.x);
+  msg.vy = (int16_t)(1000.f*vel.y);
+  msg.vz = (int16_t)(1000.f*vel.z);
+  msg.vyaw = (int16_t)(1000.f*vyaw);
 
-  msg.field.crc = calcCrc(msg.frame,B_COMMS_VEL_MSG_SIZE-2);
+  msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-  Serial.write((byte *) sync, sizeof(sync));
-  Serial.write(msg.frame, B_COMMS_VEL_MSG_SIZE);
+  Serial.write((byte *) _sync, sizeof(_sync));
+  Serial.write((byte *)&msg, sizeof(msg));
 
   retval = true;
 
   return retval;
 } // Comms::cmd
 
+// FIXME check if values are within range of int 16 (aprox +- 32.2)
 bool blob::Comms::cmd (blob::Vector3d<float> pos, float heading, float speed)
 {
   bool retval = false;
 
   gotoMsg_t msg;
 
-  memset(msg.frame, 0, sizeof(B_COMMS_GOTO_MSG_SIZE));
+  memset(&msg, 0, sizeof(msg));
 
-  msg.field.header.type = blob::Comms::Command;
-  msg.field.header.subtype = blob::Comms::Vel;
+  msg.header.type = blob::Comms::Command;
+  msg.header.subtype = blob::Comms::Vel;
 
-  msg.field.x = (int16_t)(1000.f*pos.x);
-  msg.field.y = (int16_t)(1000.f*pos.y);
-  msg.field.z = (int16_t)(1000.f*pos.z);
-  msg.field.heading = (int16_t)(1000.f*heading);
-  msg.field.speed = (int16_t)(1000.f*speed);
+  msg.x = (int16_t)(1000.f*pos.x);
+  msg.y = (int16_t)(1000.f*pos.y);
+  msg.z = (int16_t)(1000.f*pos.z);
+  msg.heading = (int16_t)(1000.f*heading);
+  msg.speed = (int16_t)(1000.f*speed);
 
-  msg.field.crc = calcCrc(msg.frame,B_COMMS_GOTO_MSG_SIZE-2);
+  msg.crc = calcCrc((byte *)&msg, sizeof(msg)-2);
 
-  Serial.write((byte *) sync, sizeof(sync));
-  Serial.write(msg.frame, B_COMMS_GOTO_MSG_SIZE);
+  Serial.write((byte *) _sync, sizeof(_sync));
+  Serial.write((byte *)&msg, sizeof(msg));
 
   retval = true;
 
   return retval;
 } // Comms::cmd
 
+bool blob::Comms::sync ()
+{
+  bool retval = false;
+
+  enum {GotNothing, GotHalfSync, GotSync, GotMsgType};
+  static int step = GotNothing;
+
+  byte c = Serial.read();
+
+  if (step == GotHalfSync && c == _sync[1])
+  {
+    step = GotSync;
+  }
+  else if (step == GotSync && isMsgTypeValid(c))
+  {
+    _received[0] = c;
+    step = GotMsgType;
+  }
+  else if (step == GotMsgType && isMsgSubTypeValid(c))
+  {
+    _received[1] = c;
+    step = GotNothing;
+    retval = true;
+#if defined(__DEBUG__) && defined(__linux) 
+    std::cout << " got message header: 0x" << std::hex << (int)_sync[0] << (int)_sync[1] 
+              << " type: " << (int)_received[0] 
+              << " subtype: " << (int)_received[1] 
+              << std::dec << std::endl;
+#endif
+  }
+  else if (c == _sync[0])
+  {
+    step = GotHalfSync;
+  }
+  else
+  {
+    step = GotNothing;
+  }
+  return retval;
+} // Comms::getHeader
 
 bool blob::Comms::receive ()
 {
   bool retval = false;
 
-  if(Serial.available() > 3)
-  {
-    if(_receiving == false)
-    { // receive header
-      if (Serial.read() == sync[0] && Serial.read() == sync[1] &&
-         isMsgTypeValid(_received[0] = Serial.read()) &&
-         isMsgSubTypeValid(_received[1] = Serial.read()))
-      {
-         _receiving = true;
-      }
-    }
-    else
-    { // retrieve body
-      switch (_received[0]) // type
-      {
-        case blob::Comms::Data:
-          switch(_received[1]) // subtype
-          {
-            case blob::Comms::Health:
-              retval = retrieve(B_COMMS_EMPTY_MSG_SIZE-2);
-              break;
-            case blob::Comms::State:
-              retval = retrieve(B_COMMS_STATE_MSG_SIZE-2);
-              break;
+  if (_receiving == false)
+  { // receive header
+    _receiving = sync();
+  }
 
-            default: break;
-          }
-          break;
+  if (_receiving == true)
+  { // retrieve body
+    switch (_received[0]) // type
+    {
+      case blob::Comms::Data:
+        switch (_received[1]) // subtype
+        {
+          case blob::Comms::Health:
+            retval = retrieve(sizeof(emptyMsg_t)-2);
+#if defined(__DEBUG__) && defined(__linux) 
+            std::cout << " retrieving blob::Comms::Health " << sizeof(emptyMsg_t)-2 << std::endl;
+#endif
+            break;
+          case blob::Comms::State:
+            retval = retrieve(sizeof(stateMsg_t)-2);
+#if defined(__DEBUG__) && defined(__linux) 
+            std::cout << " retrieving blob::Comms::State " << sizeof(stateMsg_t)-2 << std::endl;
+#endif
+            break;
+          default: break;
+        }
+        break;
 
-        case blob::Comms::Command:
-          switch(_received[1]) // subtype
-          {
-            case blob::Comms::Start:
-              retval = retrieve(B_COMMS_EMPTY_MSG_SIZE-2);
-              break;
-            case blob::Comms::Motors:
-              retval = retrieve(B_COMMS_ONOFF_MSG_SIZE-2);
-              break;
+      case blob::Comms::Command:
+        switch(_received[1]) // subtype
+        {
+          case blob::Comms::Start:
+            retval = retrieve(sizeof(emptyMsg_t)-2);
+#if defined(__DEBUG__) && defined(__linux) 
+            std::cout << " retrieving blob::Comms::Start " << sizeof(emptyMsg_t)-2 << std::endl;
+#endif
+            break;
+          case blob::Comms::Motors:
+            retval = retrieve(sizeof(actionMsg_t)-2);
+#if defined(__DEBUG__) && defined(__linux) 
+            std::cout << " retrieving blob::Comms::Motors " << sizeof(actionMsg_t)-2 << std::endl;
+#endif
+            break;
+          default: break;
+        }
+        break;
 
-            default: break;
-          }
-          break;
+      case blob::Comms::Request:
+        break;
+      case blob::Comms::Reply:
+        break;
 
-        case blob::Comms::Request:
-          break;
-
-        case blob::Comms::Reply:
-          break;
-
-        default: break;
-      }
+      default: break;
     }
   }
+  return retval;
 } // Comms::receive
 
 bool blob::Comms::retrieve (size_t length)
@@ -288,14 +340,22 @@ bool blob::Comms::retrieve (size_t length)
     // retrieve message including crc
     Serial.readBytes((char *)&_received[2], length);
 
-    uint16_t receivedCrc = *((uint16_t *)&_received[length-1]);
+    uint16_t receivedCrc = (uint16_t)(_received[length+1]<<8)+_received[length];
     uint16_t frameCrc = calcCrc(_received, length);
-
-    if (receivedCrc != frameCrc) // && Serial.peek() != sync[0]
+#if defined(__DEBUG__) && defined(__linux) 
+            std::cout << " received crc: " << receivedCrc 
+                      << " shouldbe crc: " << frameCrc << std::endl;
+#endif
+    if (receivedCrc != frameCrc)
+    {
       _type = blob::Comms::NotValid;
+    }
     else
+    {
+      _type = (blob::Comms::MsgType)_received[0];
+      _subtype = (blob::Comms::MsgSubType)_received[1];
       retval = true;
-
+    }
     _receiving = false;
   }
   return retval;
@@ -333,21 +393,21 @@ bool blob::Comms::getData (Vector3d<float> &euler, Vector3d<float> &acc, Vector3
 {
   bool retval = false;
 
-  if(_type == Data && _subtype == State)
+  if(_receiving == false && _type == Data && _subtype == State)
   {
     stateMsg_t *msg = (stateMsg_t *)_received;
-    euler.x = 0.001f*msg->field.ex;
-    euler.y = 0.001f*msg->field.ey;
-    euler.z = 0.001f*msg->field.ez;
-    acc.x = 0.001f*msg->field.ax;
-    acc.y = 0.001f*msg->field.ay;
-    acc.z = 0.001f*msg->field.az;
-    vel.x = 0.001f*msg->field.vx;
-    vel.y = 0.001f*msg->field.vy;
-    vel.z = 0.001f*msg->field.vz;
-    pos.x = 0.001f*msg->field.px;
-    pos.y = 0.001f*msg->field.py;
-    pos.z = 0.001f*msg->field.pz;
+    euler.x = 0.001f*msg->ex;
+    euler.y = 0.001f*msg->ey;
+    euler.z = 0.001f*msg->ez;
+    acc.x   = 0.001f*msg->ax;
+    acc.y   = 0.001f*msg->ay;
+    acc.z   = 0.001f*msg->az;
+    vel.x   = 0.001f*msg->vx;
+    vel.y   = 0.001f*msg->vy;
+    vel.z   = 0.001f*msg->vz;
+    pos.x   = 0.001f*msg->px;
+    pos.y   = 0.001f*msg->py;
+    pos.z   = 0.001f*msg->pz;
     retval = true;
   }
   return retval;
@@ -357,7 +417,7 @@ bool blob::Comms::getCmd (MsgSubType subtype)
 {
   bool retval = false;
 
-  if(_type == Command && _subtype == subtype)
+  if(_receiving == false && _type == Command && _subtype == subtype)
   {
     retval = true;
   }
@@ -368,10 +428,10 @@ bool blob::Comms::getCmd (OnOff &action)
 {
   bool retval = false;
 
-  if(_type == Command && _subtype == Motors)
+  if(_receiving == false && _type == Command && _subtype == Motors)
   {
     actionMsg_t *msg = (actionMsg_t *)_received;
-    action = (OnOff)msg->field.value;
+    action = (OnOff)msg->value;
     retval = true;
   }
   return retval;
@@ -382,10 +442,10 @@ bool blob::Comms::getCmd (InOut &action)
 {
   bool retval = false;
 
-  if(_type == Command && _subtype == Dock)
+  if(_receiving == false && _type == Command && _subtype == Dock)
   {
     actionMsg_t *msg = (actionMsg_t *)_received;
-    action = (InOut)msg->field.value;
+    action = (InOut)msg->value;
     retval = true;
   }
   return retval;
@@ -395,13 +455,13 @@ bool blob::Comms::getCmd (Vector3d<float> &vel, float &vyaw)
 {
   bool retval = false;
 
-  if(_type == Command && _subtype == Vel)
+  if(_receiving == false && _type == Command && _subtype == Vel)
   {
     velMsg_t *msg = (velMsg_t *)_received;
-    vel.x = 0.001f*msg->field.vx;
-    vel.y = 0.001f*msg->field.vy;
-    vel.z = 0.001f*msg->field.vz;
-    vyaw  = 0.001f*msg->field.vyaw;
+    vel.x = 0.001f*msg->vx;
+    vel.y = 0.001f*msg->vy;
+    vel.z = 0.001f*msg->vz;
+    vyaw  = 0.001f*msg->vyaw;
     retval = true;
   }
   return retval;
@@ -411,14 +471,14 @@ bool blob::Comms::getCmd (Vector3d<float> &pos, float &heading, float &speed)
 {
   bool retval = false;
 
-  if(_type == Command && _subtype == GoTo)
+  if(_receiving == false && _type == Command && _subtype == GoTo)
   {
     gotoMsg_t *msg = (gotoMsg_t *)_received;
-    pos.x     = 0.001f*msg->field.x;
-    pos.y     = 0.001f*msg->field.y;
-    pos.z     = 0.001f*msg->field.z;
-    heading   = 0.001f*msg->field.heading;
-    speed     = 0.001f*msg->field.speed;
+    pos.x   = 0.001f*msg->x;
+    pos.y   = 0.001f*msg->y;
+    pos.z   = 0.001f*msg->z;
+    heading = 0.001f*msg->heading;
+    speed   = 0.001f*msg->speed;
     retval = true;
   }
   return retval;
