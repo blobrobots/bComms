@@ -1,10 +1,10 @@
 /********* blob robotics 2014 *********
- *  title: bSerial.cpp
+ *  title: serial.cpp
  *  brief: driver for generic I2C device
  * author: adrian jimenez-gonzalez
  * e-mail: blob.robotics@gmail.com
  /*************************************/
-#include "bSerial.h"
+#include "blob/serial.h"
 
 #if defined(__linux__)
 
@@ -226,9 +226,7 @@ void blob::Serial::flush ()
     return;
 
   char c;
-  while(available()){
-      unistd::read(_fd,&c,1);
-  }
+  while(available() && unistd::read(_fd,&c,1) > 0);
 } // Serial::flush
 
 int blob::Serial::peek ()

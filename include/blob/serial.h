@@ -1,5 +1,5 @@
 /********* blob robotics 2014 *********
- *  title: bSerila.h
+ *  title: serial.h
  *  brief: interface for Serial port
  * author: adrian jimenez-gonzalez
  * e-mail: blob.robotics@gmail.com

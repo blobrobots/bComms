@@ -1,5 +1,5 @@
 /********* blob robotics 2014 *********
- *  title: bComms.h
+ *  title: comms.h
  *  brief: interface communication manager
  * author: adrian jimenez-gonzalez
  * e-mail: blob.robotics@gmail.com
@@ -12,13 +12,13 @@
 #endif // defined(__AVR_ATmega32U4__)
 #if defined(__linux__)
   #include <stdlib.h>
-  #include "bSerial.h"
+  #include "blob/serial.h"
 #endif // defined(__linux__)
 
-#include "bTypes.h"
-#include "bMath.h"
+#include "blob/types.h"
+#include "blob/math.h"
 
-#define B_COMMS_MAX_MSG_SIZE   64 // bytes
+#define BCOMMS_MAX_LENGTH     64 // bytes
 
 namespace blob {
 
@@ -30,62 +30,58 @@ class Comms
     enum OnOff {Off = 0, On = 1};
     enum InOut {Out = 0, In = 1};
     enum Response {Nack = -1, Ack = 0};
-
+/*
     typedef struct {
-      uint8_t type;
-      uint8_t subtype;
-    } headerMsg_t; // 2 bytes
+      uint8_t type;       // MsgType
+      uint8_t subtype;    // MsgSubType      
+      uint32_t timestamp; // ms
+    } headerMsg_t; // 6 bytes
 
     typedef struct {
       headerMsg_t header;
       uint8_t flags;
       uint8_t mode;
-      int16_t ex;
-      int16_t ey;
-      int16_t ez;
-      int16_t ax;
-      int16_t ay;
-      int16_t az;
-      int16_t vx;
-      int16_t vy;
-      int16_t vz;
-      int16_t px;
-      int16_t py;
-      int16_t pz;
-      int16_t crc;
-    } stateMsg_t; // 32 bytes
+      float ex;
+      float ey;
+      float ez;
+      float ax;
+      float ay;
+      float az;
+      float vx;
+      float vy;
+      float vz;
+      float px;
+      float py;
+      float pz;
+    } stateMsg_t; // 58 bytes
 
     typedef struct {
       headerMsg_t header;
       uint16_t prio;
-      int16_t  vx;
-      int16_t  vy;
-      int16_t  vz;
-      int16_t  vyaw;
-      int16_t crc;
-    } velMsg_t; // 16 bytes
+      float  vx;
+      float  vy;
+      float  vz;
+      float  vyaw;
+    } velMsg_t; // 26 bytes
 
    typedef struct {
       headerMsg_t header;
-      int16_t x;
-      int16_t y;
-      int16_t z;
-      int16_t heading;
-      int16_t speed;
-      int16_t crc;
-    } gotoMsg_t; // 16 bytes
+      float x;
+      float y;
+      float z;
+      float heading;
+      float speed;
+    } gotoMsg_t; // 28 bytes
 
     typedef struct {
       headerMsg_t header;
-      uint16_t value;
-      int16_t crc;
-    } actionMsg_t; // 8 bytes
+      uint8_t value;
+    } actionMsg_t; // 9 bytes
 
     typedef struct {
       headerMsg_t header;
-      int16_t crc;
-    } emptyMsg_t; // 4 bytes
-
+    } emptyMsg_t; // 8 bytes
+*/
 #if defined(__linux__)
     Comms(std::string port = "/dev/ttyACM0");
 #endif // defined(__linux__)
@@ -118,18 +114,30 @@ class Comms
     bool getReq  ();
 
     MsgType getMsgType () {return _type;}
+    uint32_t getTimestamp () {return _timestamp;}
 
   private:
     int16_t calcCrc (byte *frame, size_t length);
+    uint32_t timestamp ();
     bool sync ();
     bool retrieve (size_t length);
     bool isMsgTypeValid (int8_t type);
     bool isMsgSubTypeValid (int8_t subtype);
 
+    template <typename T> bool push (T const& v);
+    template <typename T> T pop ();
+    bool flushTx ();
+    bool flushRx ();
+    
     bool _receiving;
+
     MsgType _type;
     MsgSubType _subtype;
-    byte _received[B_COMMS_MAX_MSG_SIZE];
+    uint32_t _timestamp;
+
+    byte _received[BCOMMS_MAX_LENGTH]; // read buffer
+    byte _buffer[BCOMMS_MAX_LENGTH];   // write buffer
+    uint8_t _irx, _itx;
 
 #if defined(__linux__)
     blob::Serial Serial;

@@ -6,21 +6,17 @@
  /*************************************/
 
 #include <iostream>
-#include "bComms.h"
+#include "blob/comms.h"
 
 int main(int argc, char* argv[])
 {
   blob::Vector3d<float> e, a, v, p;
   std::string port = "/dev/ttyACM0";
-  
+  uint32_t time = 0;
+
   if(argc > 1)
     port = argv[1];
-/*
-  blob::Serial serial(port);
-  serial.begin(115200);
-  byte seq[] = "123456";
-  serial.write(seq,6);
-*/
+
   blob::Comms comms(port);
   
   std::cout << "starting comms test at " << port << " ..." << std::endl;  
@@ -45,10 +41,11 @@ int main(int argc, char* argv[])
           if(comms.getData(e, a, v, p))
           {
             std::cout << "Euler (" <<  e.x << ", " << e.y << ", " << e.z <<
-                        // ") Acc (" <<  a.x << ", " << a.y << ", " << a.z <<
-                        // ") Vel (" <<  v.x << ", " << v.y << ", " << v.z <<
-                        // ") Pos (" <<  p.x << ", " << p.y << ", " << p.z <<
-                         ")" << std::endl;
+                         ") Acc (" <<  a.x << ", " << a.y << ", " << a.z <<
+                         ") Vel (" <<  v.x << ", " << v.y << ", " << v.z <<
+                         ") Pos (" <<  p.x << ", " << p.y << ", " << p.z <<
+                         ") time " << comms.getTimestamp() << std::endl;
+            time = comms.getTimestamp();
           }
           break;
 

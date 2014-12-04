@@ -5,7 +5,7 @@ endif(${PLATFORM} MATCHES "Arduino")
 
 cmake_minimum_required (VERSION 2.8.5)
 cmake_policy(VERSION 2.8.5)
-project(bComms)
+project(comms)
 
 # flags for debug version: "-DCMAKE_BUILD_TYPE=Debug/Release"
 if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
@@ -17,9 +17,9 @@ else(${CMAKE_BUILD_TYPE} MATCHES "Debug")
 endif(${CMAKE_BUILD_TYPE} MATCHES "Debug")
 
 # define dependencies path
-set(BLOB_LIBS_DIR ${PROJECT_SOURCE_DIR}/../bLibs)
-set(BLOB_6DOF_DIR ${BLOB_LIBS_DIR}/b6dof)
-set(BLOB_TYPE_DIR ${BLOB_LIBS_DIR}/bTypes)
+set(BLOB_LIBS_DIR ${PROJECT_SOURCE_DIR}/../libs)
+set(BLOB_6DOF_DIR ${BLOB_LIBS_DIR}/6dof)
+set(BLOB_TYPE_DIR ${BLOB_LIBS_DIR}/types)
 
 # add include directories (-I)
 include_directories(${PROJECT_SOURCE_DIR}/include)
@@ -27,7 +27,7 @@ include_directories(${BLOB_6DOF_DIR}/include)
 include_directories(${BLOB_TYPE_DIR}/include)
 
 # sources
-set(LIB_SRC src/bSerial.cpp src/bComms.cpp)
+set(LIB_SRC src/serial.cpp src/comms.cpp)
 
 # output files path: libs at /lib and executables at bin/
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
