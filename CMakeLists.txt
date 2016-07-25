@@ -20,14 +20,16 @@ endif(${CMAKE_BUILD_TYPE} MATCHES "Debug")
 set(BLOB_LIBS_DIR ${PROJECT_SOURCE_DIR}/../libs)
 set(BLOB_6DOF_DIR ${BLOB_LIBS_DIR}/6dof)
 set(BLOB_TYPE_DIR ${BLOB_LIBS_DIR}/types)
+set(BLOB_MATH_DIR ${BLOB_LIBS_DIR}/math)
 
 # add include directories (-I)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${BLOB_6DOF_DIR}/include)
 include_directories(${BLOB_TYPE_DIR}/include)
+include_directories(${BLOB_MATH_DIR}/include)
 
 # sources
-set(LIB_SRC src/serial.cpp src/comms.cpp)
+set(LIB_SRC src/file.cpp src/serial.cpp src/comms.cpp)
 
 # output files path: libs at /lib and executables at bin/
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
