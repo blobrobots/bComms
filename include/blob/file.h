@@ -41,18 +41,22 @@
 namespace blob {
 
 /**
- * Implements communication over serial port.
+ * Implements communication over file.
  */
 class File : public Comms::Channel
 {
   public:
    
     /**
-     * Initializes communication parameters of serial port.
+     * Initializes file.
      * \param path      name of file to be used
-     * \return          true if successful, false otherwise
      */
     File (const char* path="filename.bin");
+
+    /**
+     *  Closes file before destroying file descriptor
+     */
+    ~File ();
 
     /**
      * Initializes communication over serial port.
@@ -78,7 +82,7 @@ class File : public Comms::Channel
      */
     virtual int available ();    
     /**
-     * Empties serial port buffer of available bytes.
+     * Empties file buffer of available bytes (pointer to eof).
      */
     virtual void flush ();
 

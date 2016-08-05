@@ -50,6 +50,23 @@ namespace blob {
 class Comms
 {
   public:
+    
+    /**
+     * Control characters for serialization.
+     * SYN: Synchronous idle
+     * SOH: Start of heading
+     * STX: Start of text
+     * ETB: End of transmission block
+     * ETX: End of text
+     * EOT: End of transmission
+     * ENQ: Enquiry
+     * NAK: Negative acknowledgement
+     * DLE: Data link escape
+     * ITB: Intermediate block check character
+     */
+    enum CtrlChar { SYN=0x32, SOH=0x01, STX=0x02, ETB=0x26, ETX=0x03, 
+                    EOT=0x37, ENQ=0x2D, NAK=0x3D, DLE=0x10, ITB=0x1F };
+    
     /**
      * Types of message that can be sent over comms.
      */
@@ -64,7 +81,7 @@ class Comms
      * Types of data that can be sent over comms.
      */
     enum Data { Time=0, State=1, Motors=2, Imu=3, Mag=4, Ahrs=5, Baro=6, Vel=7, 
-                Pos=8, Gps=9, InvalidData=0xFF };
+                Pos=8, Gps=9, Misc=0xFE, InvalidData=0xFF };
     /**
      * Response types available.
      */
@@ -418,6 +435,16 @@ class Comms
   private:
 
     /**
+     * Checks if system is little or big endian.
+     * \return  true if system is little endian, false if system is big endian 
+     */
+    bool isLittleEndian()
+    {
+      short int n=0x1;
+      return (*((char*)&n) == 1);
+    }
+
+    /**
      * Calculates 16 bit checksum over frame (excluding control bytes).
      * \param[in] length  frame number of bytes excluding control bytes and crc
      * \param[in] frame   bytes of frame over which crc is calculated
@@ -426,6 +453,11 @@ class Comms
      * \return            true if successful, false otherwise 
      */
     bool calcCrc (const size_t& length, const byte* frame, byte& c0, byte& c1);
+        
+    bool serialize (const size_t& length, const byte* frame);
+
+    bool deserialize (const size_t& length, const byte* frame);
+
 
     /**
      * Finds frame sync bytes over input stream.
@@ -438,7 +470,7 @@ class Comms
      * \param length  number of bytes of frame to be parsed
      * \return        true if successful, false otherwise
      */ 
-    bool retrieve (const size_t& length);
+    bool parse (const size_t& length);
 
     /**
      * Checks if a message type value is valid.
@@ -508,8 +540,8 @@ class Comms
 
     uint32_t _dataMask;       /**< mask indicating data setup to transmit */
 
-    byte _received[BCOMMS_MAX_LENGTH];  /**< reception buffer */
-    byte _buffer[BCOMMS_MAX_LENGTH];    /**< transmission buffer */
+    byte _rxBuffer[BCOMMS_MAX_LENGTH];  /**< reception buffer */
+    byte _txBuffer[BCOMMS_MAX_LENGTH];  /**< transmission buffer */
     uint8_t _irx;                       /**< reception buffer index */
     uint8_t _itx;                       /**< transmission buffer index */
 

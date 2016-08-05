@@ -43,6 +43,12 @@ blob::File::File (const char* path)
    strcpy(_path, path);
 } // File::File
 
+blob::File::~File ()
+{
+   end();
+} // File::File
+
+
 bool blob::File::init ()
 {
   _fs.open (_path, std::fstream::in | std::fstream::out | 
@@ -66,10 +72,9 @@ int blob::File::available ()
 
   long int bytes_avail = -1;
   long int pos = _fs.tellg();
-  std::ios_base::seekdir current = std::ios_base::cur;
   _fs.seekg (0, _fs.end);
   bytes_avail = _fs.tellg()-pos;
-  _fs.seekg (0, current);
+  _fs.seekg (pos);
 
   return bytes_avail;
 
@@ -100,7 +105,9 @@ bool blob::File::peek (byte& b)
   if(!isReady())
     return false;
 
-  return _fs.peek();
+  b = (byte)_fs.peek();
+
+  return true;
 
 } // File::peek
 

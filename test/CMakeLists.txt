@@ -11,5 +11,7 @@ if(${PLATFORM} MATCHES "Arduino")
 else(${PLATFORM} MATCHES "Arduino")
   add_executable(test_bcomms_lnx test_linux) # build executable
   target_link_libraries(test_bcomms_lnx blob_comms) # link libraries
+  add_executable(test_bcomms_file test_file) # build executable
+  target_link_libraries(test_bcomms_file blob_comms) # link libraries
 endif(${PLATFORM} MATCHES "Arduino")
 

@@ -37,7 +37,6 @@
   #include <sys/time.h>
 #endif
 
-static const byte _sync[2]  = {0xFF, 0xFF};
 static const uint8_t _hdr_size    = 2; // bytes
 static const uint8_t _crc_size    = 2; // bytes
 static const uint8_t _cmd_size[4] = {4, 1, 1, 16}; // bytes
@@ -111,6 +110,15 @@ bool blob::Comms::isReady () {
 
 } // Comms::isReady
 
+bool blob::Comms::checksum()
+{
+  byte c0, c1;
+  calcCrc(_rxLength, _rxBuffer, c0, c1 );
+  
+  return (c0==_rxBuffer[_rxLength-2] && c1==_rxBuffer[_rxLength-1]);
+
+} // Comms::checksum
+
 bool blob::Comms::calcCrc(const size_t& length, const byte *frame, 
                                                 byte& c0, byte& c1 )
 {
@@ -150,7 +158,7 @@ template <typename T> bool blob::Comms::push (T const& v, const uint8_t& length,
 
 template <typename T> bool blob::Comms::push (T const& v)
 {
-  return push<T>(v, sizeof(_buffer), _buffer, _itx);
+  return push<T>(v, sizeof(_txBuffer), _txBuffer, _itx);
 }
 
 template <typename T> T blob::Comms::pop ()
@@ -158,7 +166,7 @@ template <typename T> T blob::Comms::pop ()
   uint8_t inc = sizeof(T);
   T retval = 0;
 
-  if((_irx + inc) < sizeof(_received))
+  if((_irx + inc) < sizeof(_rxBuffer))
   { 
     retval = *(reinterpret_cast<T *>(&_received[_irx]));
     _irx += inc;
@@ -548,73 +556,77 @@ bool blob::Comms::cmdMove (const Vector3d<float>& movement,const float& heading)
   return true;
 } // Comms::cmd
 
-bool blob::Comms::sync ()
+bool blob::Comms::read ()
 {
   bool retval = false;
+  static bool escaping = false;
 
-  static int bytesRead = 0;
+  if(!_channel)
+    return false;
 
-  while (_channel->available() > 0 && bytesRead < 8 && retval == false)
+  while (_channel->available() > 0 && retval == false)
   {
     byte c;
     _channel->read(c);
 
-    if (bytesRead == 1 && c == _sync[1])
+    if(escaping)
     {
-      bytesRead++;
+      escaping=false;        
+      if(c==DLE || c==ETX || c==SOH)
+      {
+        if(_receiving)
+          _received[_rxLength++] = c; // DLE DLE case
+      }
+      else
+        resetRx();
     }
-    else if (bytesRead == 2 && isMsgTypeValid(c))
+    else if (c==DLE) // escape character found
     {
-      _received[0] = c;
-      bytesRead++;
+      escaping=true;
     }
-    else if (bytesRead == 3 && ((_received[0] == 0 && c < BCOMMS_MAX_LENGTH)||
-            (_received[0] > 0 && isMsgSubTypeValid(_received[0], c))))
+    else if (!_receiving && c==SOH)
     {
-      _received[1] = c;  
-      retval = true;
-      bytesRead = 0;
-
-#if defined(__DEBUG__) && defined(__linux) 
-      std::cout << " got message header: 0x" << std::hex << (int)_sync[0] << (int)_sync[1] << std::dec 
-                << " type: " << (int)_received[0];
-      if(_received[0] == Data)
-        std::cout << " data size: " << (int)_received[1] << std::endl;
-      else 
-        std::cout << " subtype: " << (int)_received[1] << std::endl;
-#endif
+      _receiving=true;
     }
-    else if (c == _sync[0])
+    else if (_receiving && _rxLength<BCOMMS_MAX_LENGTH)
     {
-      bytesRead = 1;
+      if(c==ETX)
+      {
+        _receiving = false;
+        retval = true;
+      }
+      else
+        _received[_rxLength++] = c;
     }
     else
     {
-      bytesRead = 0;
+      resetRx();
     }
   }
   return retval;
-} // Comms::sync
+
+} // Comms::read
+
+void blob::Comms::resetRx ()
+{
+  _receiving = false;
+  _rxLength  = false;
+}
 
 bool blob::Comms::receive ()
 {
   bool retval = false;
 
-  if (_receiving == false)
-  {
-    _receiving = sync();  // sync frame and parse header
-  }
-
-  if (_receiving == true) // retrieve body
+  if (read() && checksum()) // retrieve body
   {
     switch (_received[0]) // type
     {
       case Data:
-        retrieve(_received[1]);
+        parse(_received[1]);
         break;
 
       case Command:
-        retrieve(_cmd_size[_received[1]]); // subtype length
+        parse(_cmd_size[_received[1]]); // subtype length
         break;
 
       case Request:
@@ -628,7 +640,7 @@ bool blob::Comms::receive ()
   return retval;
 } // Comms::receive
 
-bool blob::Comms::retrieve (const size_t& length)
+bool blob::Comms::parse (const size_t& length)
 {
   bool retval = false;
 
